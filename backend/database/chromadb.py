@@ -1,5 +1,14 @@
 import os
+import sys
 import logging
+
+# Patch SQLite3 for ChromaDB compatibility on Linux hosting environments (Render / Streamlit / Heroku)
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+
 import chromadb
 from dotenv import load_dotenv
 
@@ -7,10 +16,9 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 raw_path = os.getenv("CHROMA_DB_PATH", "chroma_db")
 if not os.path.isabs(raw_path):
-    # Strip leading ./ or ../ to get clean folder name
     clean_name = raw_path.replace("./", "").replace("../", "")
     CHROMA_DB_PATH = os.path.join(BASE_DIR, clean_name)
 else:
