@@ -26,7 +26,15 @@ const Register = () => {
         navigate('/chat');
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed. Please try again.');
+      let errMsg = 'Registration failed. Please try again.';
+      if (err.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+          errMsg = err.response.data.detail.map(d => d.msg).join(', ');
+        } else if (typeof err.response.data.detail === 'string') {
+          errMsg = err.response.data.detail;
+        }
+      }
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
