@@ -24,7 +24,36 @@ const Login = () => {
         navigate('/chat');
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
+      let errMsg = 'Login failed. Please check your credentials.';
+      if (err.response) {
+        const status = err.response.status;
+        const data = err.response.data;
+
+        if (status === 502 || status === 503 || status === 504) {
+          errMsg = 'Backend service is starting up (Render free tier cold start). Please wait ~30 seconds and try logging in again.';
+        } else if (data?.detail) {
+          if (Array.isArray(data.detail)) {
+            errMsg = data.detail.map(d => `${d.loc ? d.loc.join('->') + ': ' : ''}${d.msg || d}`).join(', ');
+          } else if (typeof data.detail === 'string') {
+            errMsg = data.detail;
+          } else {
+            errMsg = JSON.stringify(data.detail);
+          }
+        } else if (data?.message) {
+          errMsg = data.message;
+        } else if (typeof data === 'string' && data.length < 200) {
+          errMsg = data;
+        } else {
+          errMsg = `Server error (${status}): ${err.response.statusText || 'Login request failed'}`;
+        }
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        errMsg = 'Backend server timeout. The Render backend is spinning up from sleep. Please try again in 30 seconds.';
+      } else if (err.message?.includes('Network Error') || err.code === 'ERR_NETWORK') {
+        errMsg = 'Unable to connect to backend server. If deployed on Vercel, ensure VITE_API_URL is configured and backend server is awake.';
+      } else if (err.message) {
+        errMsg = err.message;
+      }
+      setError(errMsg);
     } finally {
       setLoading(false);
     }

@@ -120,11 +120,90 @@ db = None
 use_memory_fallback = False
 memory_db: Optional[MemoryDatabase] = None
 
+class ResilientCollectionWrapper:
+    def __init__(self, collection_name: str):
+        self.name = collection_name
+
+    async def find_one(self, filter_dict, *args, **kwargs):
+        global use_memory_fallback, memory_db
+        if not use_memory_fallback and db is not None:
+            try:
+                return await db[self.name].find_one(filter_dict, *args, **kwargs)
+            except Exception as e:
+                logger.warning(f"MongoDB find_one on '{self.name}' failed ({e}). Switching to memory database.")
+                use_memory_fallback = True
+                if memory_db is None:
+                    memory_db = MemoryDatabase()
+        return await memory_db.get_collection(self.name).find_one(filter_dict)
+
+    async def insert_one(self, doc, *args, **kwargs):
+        global use_memory_fallback, memory_db
+        if not use_memory_fallback and db is not None:
+            try:
+                return await db[self.name].insert_one(doc, *args, **kwargs)
+            except Exception as e:
+                logger.warning(f"MongoDB insert_one on '{self.name}' failed ({e}). Switching to memory database.")
+                use_memory_fallback = True
+                if memory_db is None:
+                    memory_db = MemoryDatabase()
+        return await memory_db.get_collection(self.name).insert_one(doc)
+
+    def find(self, filter_dict=None, *args, **kwargs):
+        global use_memory_fallback, memory_db
+        if not use_memory_fallback and db is not None:
+            try:
+                return db[self.name].find(filter_dict or {}, *args, **kwargs)
+            except Exception as e:
+                logger.warning(f"MongoDB find on '{self.name}' failed ({e}). Switching to memory database.")
+                use_memory_fallback = True
+                if memory_db is None:
+                    memory_db = MemoryDatabase()
+        return memory_db.get_collection(self.name).find(filter_dict)
+
+    async def delete_one(self, filter_dict, *args, **kwargs):
+        global use_memory_fallback, memory_db
+        if not use_memory_fallback and db is not None:
+            try:
+                return await db[self.name].delete_one(filter_dict, *args, **kwargs)
+            except Exception as e:
+                logger.warning(f"MongoDB delete_one on '{self.name}' failed ({e}). Switching to memory database.")
+                use_memory_fallback = True
+                if memory_db is None:
+                    memory_db = MemoryDatabase()
+        return await memory_db.get_collection(self.name).delete_one(filter_dict)
+
+    async def update_one(self, filter_dict, update_dict, *args, **kwargs):
+        global use_memory_fallback, memory_db
+        if not use_memory_fallback and db is not None:
+            try:
+                return await db[self.name].update_one(filter_dict, update_dict, *args, **kwargs)
+            except Exception as e:
+                logger.warning(f"MongoDB update_one on '{self.name}' failed ({e}). Switching to memory database.")
+                use_memory_fallback = True
+                if memory_db is None:
+                    memory_db = MemoryDatabase()
+        return await memory_db.get_collection(self.name).update_one(filter_dict, update_dict)
+
+    async def count_documents(self, filter_dict=None, *args, **kwargs):
+        global use_memory_fallback, memory_db
+        if not use_memory_fallback and db is not None:
+            try:
+                return await db[self.name].count_documents(filter_dict or {}, *args, **kwargs)
+            except Exception as e:
+                logger.warning(f"MongoDB count_documents on '{self.name}' failed ({e}). Switching to memory database.")
+                use_memory_fallback = True
+                if memory_db is None:
+                    memory_db = MemoryDatabase()
+        return await memory_db.get_collection(self.name).count_documents(filter_dict)
+
+class DatabaseManager:
+    def get_collection(self, name: str):
+        return ResilientCollectionWrapper(name)
+
 async def init_db():
     global client, db, use_memory_fallback, memory_db
     try:
-        client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=2000)
-        # Verify connection
+        client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=3000)
         await client.server_info()
         db = client[DB_NAME]
         logger.info(f"Connected to MongoDB at {MONGO_URI}, database: {DB_NAME}")
@@ -134,8 +213,5 @@ async def init_db():
         memory_db = MemoryDatabase()
 
 def get_db():
-    if use_memory_fallback or db is None:
-        if memory_db is None:
-            return MemoryDatabase()
-        return memory_db
-    return db
+    return DatabaseManager()
+

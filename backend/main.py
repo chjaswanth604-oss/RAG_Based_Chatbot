@@ -50,6 +50,8 @@ app.include_router(feedback_router)
 app.include_router(admin_router)
 
 @app.get("/")
+@app.get("/api/health")
+@app.get("/health")
 async def root():
     return {
         "status": "online",
@@ -61,3 +63,4 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
