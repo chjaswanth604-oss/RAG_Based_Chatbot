@@ -41,8 +41,14 @@ const Login = () => {
           }
         } else if (data?.message) {
           errMsg = data.message;
-        } else if (typeof data === 'string' && data.length < 200) {
-          errMsg = data;
+        } else if (typeof data === 'string') {
+          if (data.includes('Cannot POST') || data.includes('<!DOCTYPE html>')) {
+            errMsg = 'Unable to reach backend API. The request hit Vercel instead of your Python FastAPI backend. Ensure VITE_API_URL is set to your deployed backend URL in Vercel and redeploy.';
+          } else if (data.length < 200) {
+            errMsg = data;
+          } else {
+            errMsg = `Server returned invalid response (${status}). Ensure backend API URL is configured correctly.`;
+          }
         } else {
           errMsg = `Server error (${status}): ${err.response.statusText || 'Login request failed'}`;
         }
