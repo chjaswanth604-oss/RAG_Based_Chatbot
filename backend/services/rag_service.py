@@ -27,10 +27,16 @@ def execute_rag_pipeline(
     3. If max score < threshold, return unknown response with no sources.
     4. Otherwise build context, prompt LLM, and return answer with source citations.
     """
-    logger.info(f"Executing RAG pipeline for query: '{question}' (dept: {department_filter})")
-
-    # Step 1: Retrieve top chunks from vector database
-    chunks = query_vector_db(query_text=question, top_k=top_k, department_filter=department_filter)
+    try:
+        # Step 1: Retrieve top chunks from vector database
+        chunks = query_vector_db(query_text=question, top_k=top_k, department_filter=department_filter)
+    except Exception as e:
+        logger.error(f"Error querying vector database or generating embedding: {e}", exc_info=True)
+        return {
+            "answer": "The backend server is initializing its AI models or cold-starting. Please try asking your question again in 15-20 seconds.",
+            "sources": [],
+            "relevance_score": 0.0
+        }
 
     if not chunks:
         logger.info("No chunks retrieved from ChromaDB.")

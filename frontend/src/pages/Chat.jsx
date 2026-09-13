@@ -77,12 +77,20 @@ const Chat = () => {
       setMessages((prev) => [...prev, newMsg]);
     } catch (err) {
       console.error("Chat send error:", err);
-      // Append fallback error message
+      let errorAnswer = "Unable to process your question at this moment. Please check backend connection.";
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        errorAnswer = "Backend timeout. The Render server is warming up or generating embeddings (~15-30s). Please try asking your question again in a moment.";
+      } else if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        errorAnswer = typeof detail === 'string' ? detail : JSON.stringify(detail);
+      } else if (err.message) {
+        errorAnswer = `Error: ${err.message}`;
+      }
       setMessages((prev) => [
         ...prev,
         {
           question: text,
-          answer: "Unable to process your question at this moment. Please check backend connection.",
+          answer: errorAnswer,
           sources: [],
           relevance_score: 0.0,
           created_at: new Date().toISOString(),
